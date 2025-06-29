@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台灣地雷遊戲</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
+    #game-container {
+      position: relative;
+      width: 595px; /* SVG 寬度 */
+      height: 842px; /* SVG 高度 */
+      background-color: #000000;
+    }
+    .box {
+      position: absolute;
+      width: 33px;
+      height: 33px;
+      background-image: url('/img/box-closed.png');
+      background-size: cover;
+      cursor: pointer;
+    }
+    .box.revealed-safe {
+      background-image: url('assets/box-safe.png');
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #ffffff;
+      font-weight: bold;
+    }
+    .box.revealed-mine {
+      background-image: url('assets/box-mine.png');
+    }
+    #game-over {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      animation: slide-in 0.5s ease-out;
+    }
+    #game-over img {
+      max-width: 200px;
+    }
+    #game-over button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    @keyframes slide-in {
+      from { transform: translate(-50%, -150%); }
+      to { transform: translate(-50%, -50%); }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div id="game-over">
+    <img src="assets/game-over.png" alt="Game Over">
+    <button onclick="resetGame()">再玩一次</button>
+  </div>
+  <script>
+    // 從 SVG 提取格子座標
+    const gridPositions = [
+      { x: 383.78, y: 127.98 }, { x: 316.07, y: 195.69 }, { x: 349.92, y: 195.69 },
+      { x: 316.07, y: 229.54 }, { x: 248.50, y: 669.49 }, { x: 248.50, y: 635.64 },
+      { x: 214.65, y: 601.78 }, { x: 248.50, y: 601.78 }, { x: 282.36, y: 601.78 },
+      { x: 282.36, y: 567.93 }, { x: 248.50, y: 567.93 }, { x: 180.79, y: 567.93 },
+      { x: 214.65, y: 567.93 }, { x: 282.36, y: 534.09 }, { x: 214.65, y: 534.09 },
+      { x: 248.50, y: 534.09 }, { x: 316.07, y: 534.09 }, { x: 316.07, y: 500.23 },
+      { x: 282.36, y: 500.23 }, { x: 248.50, y: 500.23 }, { x: 417.63, y: 161.83 },
+      { x: 349.92, y: 161.83 }, { x: 316.07, y: 161.83 }, { x: 248.50, y: 229.54 },
+      { x: 214.65, y: 263.40 }, { x: 248.50, y: 297.25 }, { x: 282.36, y: 263.40 },
+      { x: 282.36, y: 195.69 }, { x: 417.63, y: 195.69 }, { x: 417.63, y: 229.54 },
+      { x: 417.63, y: 263.40 }, { x: 417.63, y: 297.25 }, { x: 383.78, y: 161.83 },
+      { x: 383.78, y: 195.69 }, { x: 383.78, y: 229.54 }, { x: 383.78, y: 263.40 },
+      { x: 383.78, y: 297.25 }, { x: 383.78, y: 331.11 }, { x: 383.78, y: 364.96 },
+      { x: 383.78, y: 398.81 }, { x: 282.36, y: 466.38 }, { x: 316.07, y: 466.38 },
+      { x: 282.36, y: 432.52 }, { x: 349.92, y: 229.54 }, { x: 349.92, y: 263.40 },
+      { x: 349.92, y: 331.11 }, { x: 349.92, y: 364.96 }, { x: 349.92, y: 398.81 },
+      { x: 349.92, y: 432.52 }, { x: 349.92, y: 466.38 }, { x: 349.92, y: 297.25 },
+      { x: 316.07, y: 263.40 }, { x: 316.07, y: 297.25 }, { x: 316.07, y: 331.11 },
+      { x: 316.07, y: 364.96 }, { x: 316.07, y: 398.81 }, { x: 316.07, y: 432.52 },
+      { x: 282.36, y: 297.25 }, { x: 282.36, y: 331.11 }, { x: 282.36, y: 364.96 },
+      { x: 282.36, y: 398.81 }, { x: 282.36, y: 229.54 }, { x: 248.50, y: 263.40 },
+      { x: 214.65, y: 297.25 }, { x: 248.50, y: 331.11 }, { x: 146.94, y: 432.52 },
+      { x: 146.94, y: 466.38 }, { x: 180.79, y: 432.52 }, { x: 180.79, y: 466.38 },
+      { x: 180.79, y: 500.23 }, { x: 146.94, y: 500.23 }, { x: 180.79, y: 534.09 },
+      { x: 214.65, y: 500.23 }, { x: 214.65, y: 466.38 }, { x: 248.50, y: 466.38 },
+      { x: 214.65, y: 432.52 }, { x: 248.50, y: 432.52 }, { x: 146.94, y: 398.81 },
+      { x: 180.79, y: 398.81 }, { x: 214.65, y: 398.81 }, { x: 248.50, y: 398.81 },
+      { x: 214.65, y: 331.11 }, { x: 180.79, y: 331.11 }, { x: 180.79, y: 364.96 },
+      { x: 146.94, y: 364.96 }, { x: 214.65, y: 364.96 }, { x: 248.50, y: 364.96 }
+    ];
+    const mineCount = 10; // 地雷數量
+    let grid = [];
+    let revealed = [];
+    let gameOver = false;
+
+    // 初始化遊戲
+    function initGame() {
+      gameOver = false;
+      document.getElementById('game-over').style.display = 'none';
+      const container = document.getElementById('game-container');
+      container.innerHTML = ''; // 清空網格
+      grid = Array(gridPositions.length).fill(0); // 0: 安全, 1: 地雷
+      revealed = Array(gridPositions.length).fill(false);
+
+      // 隨機放置地雷
+      for (let i = 0; i < mineCount; i++) {
+        let index = Math.floor(Math.random() * gridPositions.length);
+        if (grid[index] === 0) grid[index] = 1;
+        else i--;
+      }
+
+      // 生成格子
+      gridPositions.forEach((pos, index) => {
+        const box = document.createElement('div');
+        box.className = 'box';
+        box.style.left = `${pos.x}px`;
+        box.style.top = `${pos.y}px`;
+        box.dataset.index = index;
+        box.addEventListener('click', handleClick);
+        container.appendChild(box);
+      });
+    }
+
+    // 處理點擊事件
+    function handleClick(e) {
+      if (gameOver) return;
+      const index = parseInt(e.target.dataset.index);
+      if (revealed[index]) return;
+
+      revealed[index] = true;
+      const box = e.target;
+
+      if (grid[index] === 1) {
+        // 踩到地雷
+        box.classList.add('revealed-mine');
+        gameOver = true;
+        document.getElementById('game-over').style.display = 'block';
+      } else {
+        // 安全格子
+        box.classList.add('revealed-safe');
+        const count = countMines(index);
+        if (count > 0) {
+          box.textContent = count;
+        }
+      }
+    }
+
+    // 計算周圍地雷數
+    function countMines(index) {
+      const pos = gridPositions[index];
+      let count = 0;
+      gridPositions.forEach((otherPos, otherIndex) => {
+        const dx = Math.abs(pos.x - otherPos.x);
+        const dy = Math.abs(pos.y - otherPos.y);
+        // 假設相鄰格子距離小於 34 像素（格子大小）
+        if (dx <= 34 && dy <= 34 && (dx > 0 || dy > 0) && grid[otherIndex] === 1) {
+          count++;
+        }
+      });
+      return count;
+    }
+
+    // 重置遊戲
+    function resetGame() {
+      initGame();
+    }
+
+    // 啟動遊戲
+    initGame();
+  </script>
+</body>
+</html>
